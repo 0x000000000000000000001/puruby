@@ -1,0 +1,130 @@
+# puruby
+
+<br />
+<br />
+
+_Experimental WIP._
+
+A super-optimized **PureScript-to-Ruby compiler**, entirely written in PureScript, leveraging Ruby's **expressiveness**, **developer happiness**, and **huge ecosystem** (RubyGems). 
+
+`puruby` leverages an enriched `tcorefn` (Typed CoreFn) representation to compile your pure business logic into robust, modern Ruby code. It seamlessly integrates into your existing PureScript workflow as a custom backend.
+
+## Why Ruby?
+
+While the broader JS ecosystem has heavily leaned towards TypeScript, many web applications, scripts, and automation tools rely heavily on Ruby for its **elegant syntax**, **productivity**, and **mature ecosystem** (like Rails).
+
+`puruby` aims to provide a bridge for developers who want the elegance and strict typing of a purely functional language like PureScript, while benefiting from Ruby's massive ecosystem. It opens a door for those who want to compile their pure business logic into clean, readable Ruby code that can integrate seamlessly with existing Ruby projects.
+
+## Why a new Ruby backend?
+
+The `puruby` project is inspired by previous efforts to compile PureScript to different dynamic languages. Reading through the discussions and challenges raised by users over the years, it became clear that the ecosystem has evolved drastically. This evolution unlocked new architectural paradigms that make building a completely new Ruby backend highly relevant today:
+
+### 1. The optimizer & bootstrapping
+While previous compilers were often written in Haskell and parsed raw `CoreFn`, `puruby` is written 100% in PureScript. It integrates directly with the [`purescript-backend-optimizer`](https://github.com/aristanetworks/purescript-backend-optimizer). This allows the compiler to instantly benefit from classical optimizations such as aggressive uncurrying, magic-do, and Tail Call Optimization (TCO) at the AST level. The `puruby` compiler can then strictly focus on translating this highly-optimized AST into idiomatic, performant Ruby code. Being built in PureScript also ensures it remains fully accessible to anyone in the ecosystem (installable via `spago` and `npm`).
+
+### 2. Native memory layout for Ruby
+For `puruby`, the runtime uses a flat representation of objects and classes. It leverages Ruby's dynamic nature but applies optimizations to avoid deep nesting and unnecessary allocations. This ensures that dynamic operations stay fast and generate minimal Garbage Collector pressure.
+
+### 3. TAST: Breaking the performance ceiling
+To reach high execution speeds, `puruby` consumes an enriched `tcorefn.json` (Typed CoreFn). This custom format preserves the deep structural typing information and the exact memory layout of ADTs that standard `corefn` strips away. Combined with partial monomorphization, this allows the compiler to generate idiomatic Ruby code end-to-end, unlocking significant performance gains by bypassing unnecessary dynamic checks where types are known statically.
+
+### 4. Zero boilerplate FFI
+One of the pain points with FFI in alternative backends is the boilerplate (manual boxing/unboxing, currying). `puruby` features an AST parser (`ffi_gen.wasm`) that analyzes your `.rb` FFI files on the fly. You can write perfectly flat Ruby methods. The generated bridge takes care of all the uncurrying, type conversions, and Effect flattening under the hood, making FFI development feel 100% native.
+
+### 5. Up-to-date with modern PureScript & Ruby
+`puruby` aims to be fully aligned with the current v0.15+ ecosystem (and v0.16+ soon). It takes full advantage of modern Ruby features.
+
+### 6. Parallelism behind Aff
+Historical hurdles involved mapping PureScript’s asynchronous monad (`Aff`) without introducing massive overhead. `puruby` maps `Aff` to Ruby's concurrency primitives (Fibers/Async or Ractors in Ruby 3+), bringing responsive and concurrent execution to PureScript on Ruby.
+
+## How to use
+
+If you wish to configure an existing project, `puruby` acts as a drop-in backend for the Spago build system.
+
+1. **Install the `puruby` backend compiler:**
+   You can install the compiler directly from GitHub. NPM will automatically compile it in the background during installation.
+   ```bash
+   npm install --save-dev github:0x000000000000000000001/puruby
+   ```
+
+2. **Manage Core Library Overrides (`spago.yaml`):**
+   Because standard PureScript libraries use JavaScript FFI, you must override them with their `puruby-*` counterparts. Keep using the official PureScript registry as your base, and manually define all Ruby overrides using the `extraPackages` directive.
+
+   ```yaml
+   workspace:
+     packageSet:
+       registry: 77.10.1
+     extraPackages:
+       prelude:
+         git: "https://github.com/0x000000000000000000001/puruby-prelude.git"
+         ref: "master"
+         dependencies: []
+       # ... all other puruby-* packages
+     backend:
+       cmd: puruby
+   ```
+
+3. **Build and execute:**
+   The compiler will parse all `tcorefn.json` files generated by `purs` (via a TAST-enabled fork) and output native Ruby files in the `output/` directory.
+   
+   An executable `main.rb` entrypoint will be automatically generated. You can run it directly:
+   
+   ```bash
+   spago build
+   cd output
+   ruby main.rb
+   ```
+
+### Compiler configuration options
+
+The `puruby` compiler is entirely **zero-config by default**. It will automatically scan your `tcorefn` ASTs and generate a ready-to-execute `main.rb` entrypoint.
+
+If you need advanced behavior, you can pass arguments to the `puruby` compiler by appending them to the `spago build --backend-args` command:
+
+```bash
+spago build --backend puruby --backend-args "--main App.Main"
+```
+
+| Option | Description |
+|---|---|
+| `--main <Module>` | *Optional*. Explicitly sets the entrypoint module. Without this flag, `puruby` automatically targets the `Main` module. |
+
+## Local development & testing
+
+If you plan to contribute to the compiler or run the official test suite locally, you will have to follow a specific "sibling-checkout" directory layout. 
+
+Because `puruby` replaces the JS ecosystem with Ruby, it requires custom Ruby-compatible forks of the core PureScript libraries (e.g. `purescript-prelude` becomes `puruby-prelude`). The internal test runner (`bin/test`) expects these core `puruby-*` repositories to be cloned side-by-side in the same parent directory as the main `puruby` repository.
+
+```
+workspace/
+├── puruby/
+├── puruby-prelude/
+├── puruby-effect/
+├── puruby-console/
+├── puruby-assert/
+└── ... (all other core puruby-* forks)
+```
+
+To easily clone all these required dependencies, you can simply run the provided setup script:
+```bash
+cd puruby
+./bin/setup
+```
+
+To run the test suite:
+```bash
+./bin/test
+```
+
+## Architecture
+
+`puruby` is built on top of [Arista's purescript-backend-optimizer](https://github.com/aristanetworks/purescript-backend-optimizer) to avoid reinventing the optimization wheel. The compilation pipeline is functionally decoupled:
+
+1. **Optimization**: The optimizer reads the `tcorefn.json` generated by `purs`, performs aggressive Dead Code Elimination (DCE), typeclass dictionary resolution, inlining, and constant folding at the AST level, and outputs an optimized `BackendModule`.
+2. **Code Generation**: `Puruby.CodeGen` maps this heavily optimized PureScript AST to our native `RubyAst`.
+3. **Printing**: `Puruby.Printer` formats the Ruby AST into valid, modern Ruby syntax.
+4. **Caching & CLI**: `Main` orchestrates the CLI, writing the generated `.rb` files to their respective module directories. 
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
