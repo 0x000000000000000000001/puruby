@@ -1,0 +1,4 @@
+*.js linguist-generated
+*.js linguist-vendored
+bin/puruby.js linguist-generated
+bin/puruby.js linguist-vendored
