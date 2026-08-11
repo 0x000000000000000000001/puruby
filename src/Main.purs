@@ -46,7 +46,7 @@ main = launchAff_ do
         -- Emit FFI stubs
         let
           foreignIdents = Map.keys backendMod.foreign
-          ffiStubs = String.joinWith "\n" (map (\(Ident name) -> "$" <> safeModName <> "_" <> String.replaceAll (String.Pattern "'") (String.Replacement "_") name <> " ||= FFI_STUB") (Array.fromFoldable foreignIdents))
+          ffiStubs = String.joinWith "\n" (map (\(Ident name) -> let safeName = String.replaceAll (String.Pattern "'") (String.Replacement "_") name in "$" <> safeModName <> "_" <> safeName <> " = FFI_STUB unless defined?($" <> safeModName <> "_" <> safeName <> ")") (Array.fromFoldable foreignIdents))
 
         let ffiPath = "src/" <> String.replaceAll (String.Pattern ".") (String.Replacement "/") modNameStr <> ".rb"
         ffiResult <- try (FS.readTextFile UTF8 ffiPath)
@@ -69,6 +69,7 @@ main = launchAff_ do
 $Effect_bindE = ->(a) { ->(f) { ->() { f.call(a.call()).call() } } }
 $Effect_pureE = ->(a) { ->() { a } }
 $Effect_Console_log = ->(s) { ->() { puts s } }
+$Unsafe_Coerce_unsafeCoerce = ->(a) { a }
 $Data_Semigroup_concatString = ->(a) { ->(b) { a + b } }
 $Data_Semigroup_concatArray = ->(a) { ->(b) { a + b } }
 $Data_Semiring_intAdd = ->(a) { ->(b) { a + b } }
@@ -96,6 +97,10 @@ $Data_Function_Uncurried_mkFn9 = ->(fn) { ->(a0, a1, a2, a3, a4, a5, a6, a7, a8)
 $Data_Function_Uncurried_runFn9 = ->(fn) { ->(a0) { ->(a1) { ->(a2) { ->(a3) { ->(a4) { ->(a5) { ->(a6) { ->(a7) { ->(a8) { fn.call(a0, a1, a2, a3, a4, a5, a6, a7, a8) } } } } } } } } } }
 $Data_Function_Uncurried_mkFn10 = ->(fn) { ->(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) { fn.call(a0).call(a1).call(a2).call(a3).call(a4).call(a5).call(a6).call(a7).call(a8).call(a9) } }
 $Data_Function_Uncurried_runFn10 = ->(fn) { ->(a0) { ->(a1) { ->(a2) { ->(a3) { ->(a4) { ->(a5) { ->(a6) { ->(a7) { ->(a8) { ->(a9) { fn.call(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) } } } } } } } } } } }
+$Test_Data_UndefinedOr_undefined = nil
+$Test_Data_UndefinedOr_defined = ->(x) { x }
+$Test_Data_UndefinedOr_eqUndefinedOrImpl = ->(eq) { ->(a) { ->(b) { (a.nil? && b.nil?) || (!a.nil? && !b.nil? && eq.call(a).call(b)) } } }
+$Test_Data_UndefinedOr_compareUndefinedOrImpl = ->(lt) { ->(eq) { ->(gt) { ->(compare) { ->(a) { ->(b) { a.nil? && b.nil? ? eq : (a.nil? ? lt : (b.nil? ? gt : compare.call(a).call(b))) } } } } } }
 $Record_Unsafe_unsafeGet = ->(label) { ->(rec) { rec[label] } }
 $Data_HeytingAlgebra_boolConj = ->(a) { ->(b) { a && b } }
 $Data_HeytingAlgebra_boolDisj = ->(a) { ->(b) { a || b } }
@@ -137,7 +142,7 @@ $Data_Array_findIndexImpl = ->(just, nothing, f, xs) { idx = xs.find_index { |x|
 $Data_Array_findLastIndexImpl = ->(just, nothing, f, xs) { idx = xs.rindex { |x| f.call(x) }; idx ? just.call(idx) : nothing }
 $Data_Array_findMapImpl = ->(nothing, isJust, fromJust, f, xs) { res = nil; xs.each { |x| v = f.call(x); if isJust.call(v); res = fromJust.call(v); break; end }; res ? res : nothing }
 $Data_Array_partitionImpl = ->(f, xs) { t, f_res = xs.partition { |x| f.call(x) }; { "yes" => t, "no" => f_res } }
-$Data_Array_sortByImpl = ->(comp, fromOrdering, xs) { xs.sort { |a, b| fromOrdering.call(comp.call(a).call(b)) } }
+$Data_Array_sortByImpl = ->(comp, fromOrdering, xs) { xs.each_with_index.sort { |(a, i), (b, j)| cmp = fromOrdering.call(comp.call(a).call(b)); cmp == 0 ? (i <=> j) : cmp }.map(&:first) }
 $Data_Array_unconsImpl = ->(just, nothing, xs) { xs.empty? ? nothing : just.call({ "head" => xs.first, "tail" => xs.drop(1) }) }
 $Data_Array_zipWithImpl = ->(f, xs, ys) { xs.zip(ys).take([xs.length, ys.length].min).map { |a, b| f.call(a).call(b) } }
 $Data_Array_scanlImpl = ->(f, b, xs) { acc = b; res = [acc]; xs.each { |x| acc = f.call(acc).call(x); res << acc }; res }
