@@ -122,6 +122,18 @@ var RubyAccessor = /* #__PURE__ */ (function () {
     };
     return RubyAccessor;
 })();
+var RubyPropertyAccess = /* #__PURE__ */ (function () {
+    function RubyPropertyAccess(value0, value1) {
+        this.value0 = value0;
+        this.value1 = value1;
+    };
+    RubyPropertyAccess.create = function (value0) {
+        return function (value1) {
+            return new RubyPropertyAccess(value0, value1);
+        };
+    };
+    return RubyPropertyAccess;
+})();
 var RubyIndexAccess = /* #__PURE__ */ (function () {
     function RubyIndexAccess(value0, value1) {
         this.value0 = value0;
@@ -133,6 +145,18 @@ var RubyIndexAccess = /* #__PURE__ */ (function () {
         };
     };
     return RubyIndexAccess;
+})();
+var RubyDynamicIndexAccess = /* #__PURE__ */ (function () {
+    function RubyDynamicIndexAccess(value0, value1) {
+        this.value0 = value0;
+        this.value1 = value1;
+    };
+    RubyDynamicIndexAccess.create = function (value0) {
+        return function (value1) {
+            return new RubyDynamicIndexAccess(value0, value1);
+        };
+    };
+    return RubyDynamicIndexAccess;
 })();
 var RubyTernary = /* #__PURE__ */ (function () {
     function RubyTernary(value0, value1, value2) {
@@ -239,7 +263,9 @@ export {
     RubyLet,
     RubyBlock,
     RubyAccessor,
+    RubyPropertyAccess,
     RubyIndexAccess,
+    RubyDynamicIndexAccess,
     RubyTernary,
     RubyAbs,
     RubyUncurriedAbs,

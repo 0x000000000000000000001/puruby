@@ -6,7 +6,8 @@ import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
 import Node.FS.Aff as FS
 import Node.Encoding (Encoding(..))
-import PureScript.Backend.Optimizer.App (coreFnModulesFromOutput)
+import PureScript.Backend.Optimizer.App (coreFnModulesFromOutput, parseCLIArgs)
+import Node.Process as Process
 import PureScript.Backend.Optimizer.Builder (buildModules)
 import PureScript.Backend.Optimizer.CoreFn (Module(..), Ident(..))
 import PureScript.Backend.Optimizer.Semantics.Foreign (coreForeignSemantics)
@@ -14,6 +15,8 @@ import Data.Map as Map
 import Data.Set as Set
 import Data.Array as Array
 import Data.Maybe (Maybe(..))
+import Data.Either (Either(..))
+import Control.Monad.Error.Class (try)
 import Data.Newtype (unwrap)
 import Data.String as String
 import Puruby.CodeGen (translate)
@@ -21,8 +24,11 @@ import Puruby.Printer (printFile)
 
 main :: Effect Unit
 main = launchAff_ do
-  modules <- coreFnModulesFromOutput "output"
-  
+  argsRaw <- liftEffect Process.argv
+  let args = parseCLIArgs argsRaw
+  let outputDir = "output"
+  modules <- coreFnModulesFromOutput outputDir
+
   buildModules
     { directives: Map.empty
     , analyzeCustom: \_ _ -> Nothing
@@ -34,28 +40,113 @@ main = launchAff_ do
         let modNameStr = unwrap backendMod.name
         let rubyAst = translate backendMod
         let rubyCode = printFile rubyAst
-        
+
         let safeModName = String.replaceAll (String.Pattern ".") (String.Replacement "_") modNameStr
-        
+
         -- Emit FFI stubs
         let
           foreignIdents = Map.keys backendMod.foreign
           ffiStubs = String.joinWith "\n" (map (\(Ident name) -> "$" <> safeModName <> "_" <> String.replaceAll (String.Pattern "'") (String.Replacement "_") name <> " ||= FFI_STUB") (Array.fromFoldable foreignIdents))
-        
+
+        let ffiPath = "src/" <> String.replaceAll (String.Pattern ".") (String.Replacement "/") modNameStr <> ".rb"
+        ffiResult <- try (FS.readTextFile UTF8 ffiPath)
+        let
+          ffiCode = case ffiResult of
+            Right code -> code
+            Left _ -> ""
+
         -- Generate the module file
-        FS.writeTextFile UTF8 ("output/" <> safeModName <> ".rb") (ffiStubs <> "\n\n" <> rubyCode)
-        
+        FS.writeTextFile UTF8 (outputDir <> "/" <> safeModName <> ".rb") (ffiCode <> "\n\n" <> ffiStubs <> "\n\n" <> rubyCode)
+
     }
     modules
 
   let
     requires = String.joinWith "" (map (\(Module m) -> "require_relative '" <> String.replaceAll (String.Pattern ".") (String.Replacement "_") (unwrap m.name) <> "'\n") (Array.fromFoldable modules))
     ffiStubHelper = "class FFIStubClass\n  def call(*args)\n    self\n  end\n  def [](*args)\n    self\n  end\nend\nFFI_STUB = FFIStubClass.new\n\n"
-    ffis = """
+    ffis =
+      """
 $Effect_bindE = ->(a) { ->(f) { ->() { f.call(a.call()).call() } } }
 $Effect_pureE = ->(a) { ->() { a } }
 $Effect_Console_log = ->(s) { ->() { puts s } }
 $Data_Semigroup_concatString = ->(a) { ->(b) { a + b } }
+$Data_Semigroup_concatArray = ->(a) { ->(b) { a + b } }
+$Data_Semiring_intAdd = ->(a) { ->(b) { a + b } }
+$Data_Semiring_intMul = ->(a) { ->(b) { a * b } }
+$Data_Ring_intSub = ->(a) { ->(b) { a - b } }
+$Data_Eq_eqIntImpl = ->(a) { ->(b) { a == b } }
+$Data_Eq_eqStringImpl = ->(a) { ->(b) { a == b } }
+$Data_Functor_arrayMap = ->(f) { ->(xs) { xs.map { |x| f.call(x) } } }
+$Control_Apply_arrayApply = ->(fs) { ->(xs) { fs.flat_map { |f| xs.map { |x| f.call(x) } } } }
+$Data_Function_Uncurried_mkFn2 = ->(fn) { ->(a0, a1) { fn.call(a0).call(a1) } }
+$Data_Function_Uncurried_runFn2 = ->(fn) { ->(a0) { ->(a1) { fn.call(a0, a1) } } }
+$Data_Function_Uncurried_mkFn3 = ->(fn) { ->(a0, a1, a2) { fn.call(a0).call(a1).call(a2) } }
+$Data_Function_Uncurried_runFn3 = ->(fn) { ->(a0) { ->(a1) { ->(a2) { fn.call(a0, a1, a2) } } } }
+$Data_Function_Uncurried_mkFn4 = ->(fn) { ->(a0, a1, a2, a3) { fn.call(a0).call(a1).call(a2).call(a3) } }
+$Data_Function_Uncurried_runFn4 = ->(fn) { ->(a0) { ->(a1) { ->(a2) { ->(a3) { fn.call(a0, a1, a2, a3) } } } } }
+$Data_Function_Uncurried_mkFn5 = ->(fn) { ->(a0, a1, a2, a3, a4) { fn.call(a0).call(a1).call(a2).call(a3).call(a4) } }
+$Data_Function_Uncurried_runFn5 = ->(fn) { ->(a0) { ->(a1) { ->(a2) { ->(a3) { ->(a4) { fn.call(a0, a1, a2, a3, a4) } } } } } }
+$Data_Function_Uncurried_mkFn6 = ->(fn) { ->(a0, a1, a2, a3, a4, a5) { fn.call(a0).call(a1).call(a2).call(a3).call(a4).call(a5) } }
+$Data_Function_Uncurried_runFn6 = ->(fn) { ->(a0) { ->(a1) { ->(a2) { ->(a3) { ->(a4) { ->(a5) { fn.call(a0, a1, a2, a3, a4, a5) } } } } } } }
+$Data_Function_Uncurried_mkFn7 = ->(fn) { ->(a0, a1, a2, a3, a4, a5, a6) { fn.call(a0).call(a1).call(a2).call(a3).call(a4).call(a5).call(a6) } }
+$Data_Function_Uncurried_runFn7 = ->(fn) { ->(a0) { ->(a1) { ->(a2) { ->(a3) { ->(a4) { ->(a5) { ->(a6) { fn.call(a0, a1, a2, a3, a4, a5, a6) } } } } } } } }
+$Data_Function_Uncurried_mkFn8 = ->(fn) { ->(a0, a1, a2, a3, a4, a5, a6, a7) { fn.call(a0).call(a1).call(a2).call(a3).call(a4).call(a5).call(a6).call(a7) } }
+$Data_Function_Uncurried_runFn8 = ->(fn) { ->(a0) { ->(a1) { ->(a2) { ->(a3) { ->(a4) { ->(a5) { ->(a6) { ->(a7) { fn.call(a0, a1, a2, a3, a4, a5, a6, a7) } } } } } } } } }
+$Data_Function_Uncurried_mkFn9 = ->(fn) { ->(a0, a1, a2, a3, a4, a5, a6, a7, a8) { fn.call(a0).call(a1).call(a2).call(a3).call(a4).call(a5).call(a6).call(a7).call(a8) } }
+$Data_Function_Uncurried_runFn9 = ->(fn) { ->(a0) { ->(a1) { ->(a2) { ->(a3) { ->(a4) { ->(a5) { ->(a6) { ->(a7) { ->(a8) { fn.call(a0, a1, a2, a3, a4, a5, a6, a7, a8) } } } } } } } } } }
+$Data_Function_Uncurried_mkFn10 = ->(fn) { ->(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) { fn.call(a0).call(a1).call(a2).call(a3).call(a4).call(a5).call(a6).call(a7).call(a8).call(a9) } }
+$Data_Function_Uncurried_runFn10 = ->(fn) { ->(a0) { ->(a1) { ->(a2) { ->(a3) { ->(a4) { ->(a5) { ->(a6) { ->(a7) { ->(a8) { ->(a9) { fn.call(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) } } } } } } } } } } }
+$Record_Unsafe_unsafeGet = ->(label) { ->(rec) { rec[label] } }
+$Data_HeytingAlgebra_boolConj = ->(a) { ->(b) { a && b } }
+$Data_HeytingAlgebra_boolDisj = ->(a) { ->(b) { a || b } }
+$Data_HeytingAlgebra_boolNot = ->(a) { !a }
+$Control_Bind_arrayBind = ->(xs) { ->(f) { xs.flat_map { |x| f.call(x) } } }
+$Data_Eq_eqBooleanImpl = ->(a) { ->(b) { a == b } }
+$Data_Eq_eqArrayImpl = ->(f) { ->(xs) { ->(ys) { xs.is_a?(Array) && ys.is_a?(Array) && xs.length == ys.length && xs.zip(ys).all? { |x, y| f.call(x).call(y) } } } }
+$Data_Ord_ordIntImpl = ->(lt) { ->(eq) { ->(gt) { ->(x) { ->(y) { x < y ? lt : (x == y ? eq : gt) } } } } }
+$Data_Ord_ordStringImpl = ->(lt) { ->(eq) { ->(gt) { ->(x) { ->(y) { x < y ? lt : (x == y ? eq : gt) } } } } }
+$Test_Assert_assertImpl = ->(msg) { ->(success) { ->() { puts "Assert #{msg}: #{success.inspect}"; raise msg unless success } } }
+$Test_Assert_checkThrows = ->(f) { ->() { begin; f.call(); false; rescue; true; end } }
+$Data_Show_showIntImpl = ->(n) { n.to_s }
+$Data_Show_showStringImpl = ->(s) { s.inspect }
+$Data_Show_showArrayImpl = ->(f) { ->(xs) { "[" + xs.map { |x| f.call(x) }.join(",") + "]" } }
+$Data_Foldable_foldrArray = ->(f) { ->(init) { ->(xs) { xs.reverse.inject(init) { |acc, x| f.call(x).call(acc) } } } }
+$Data_Foldable_foldlArray = ->(f) { ->(init) { ->(xs) { xs.inject(init) { |acc, x| f.call(acc).call(x) } } } }
+$Data_Unfoldable_unfoldrArrayImpl = ->(isNothing) { ->(fromJust) { ->(fst) { ->(snd) { ->(f) { ->(b) { result = []; value = b; loop do; maybe = f.call(value); return result if isNothing.call(maybe); tuple = fromJust.call(maybe); result.push(fst.call(tuple)); value = snd.call(tuple); end } } } } } }
+$Data_Unfoldable1_unfoldr1ArrayImpl = ->(isNothing) { ->(fromJust) { ->(fst) { ->(snd) { ->(f) { ->(b) { result = []; value = b; loop do; tuple = f.call(value); result.push(fst.call(tuple)); maybe = snd.call(tuple); return result if isNothing.call(maybe); value = fromJust.call(maybe); end } } } } } }
+$Data_Traversable_traverseArrayImpl = ->(apply) { ->(map) { ->(pure) { ->(f) { ->(array) { cons = ->(x) { ->(xs) { [x] + xs } }; array.reverse.inject(pure.call([])) { |acc, x| apply.call(map.call(cons).call(f.call(x))).call(acc) } } } } } }
+$Data_EuclideanRing_intDegree = ->(a) { a.abs }
+$Data_EuclideanRing_intDiv = ->(a) { ->(b) { b == 0 ? 0 : a / b } }
+$Data_EuclideanRing_intMod = ->(a) { ->(b) { b == 0 ? 0 : a % b } }
+$Partial_Unsafe__unsafePartial = ->(f) { f.call(nil) }
+$Data_Array_length = ->(xs) { xs.length }
+$Data_Array_reverse = ->(xs) { xs.reverse }
+$Data_Array_concat = ->(xss) { xss.flatten(1) }
+$Data_Array_filterImpl = ->(f, xs) { xs.select { |x| f.call(x) } }
+$Data_Array_anyImpl = ->(f, xs) { xs.any? { |x| f.call(x) } }
+$Data_Array_allImpl = ->(f, xs) { xs.all? { |x| f.call(x) } }
+$Data_Array_rangeImpl = ->(start, end_) { start <= end_ ? (start..end_).to_a : start.downto(end_).to_a }
+$Data_Array_replicateImpl = ->(count, value) { count > 0 ? Array.new(count, value) : [] }
+$Data_Array_indexImpl = ->(just, nothing, xs, i) { (i >= 0 && i < xs.length) ? just.call(xs[i]) : nothing }
+$Data_Array_unsafeIndexImpl = ->(xs) { ->(n) { xs[n] } }
+$Data_Array_sliceImpl = ->(start, end_, xs) { xs[[start, 0].max...[end_, xs.length].min] || [] }
+$Data_Array__deleteAt = ->(just, nothing, i, xs) { (i >= 0 && i < xs.length) ? just.call(xs[0...i] + xs[i+1..-1]) : nothing }
+$Data_Array__insertAt = ->(just, nothing, i, a, xs) { (i >= 0 && i <= xs.length) ? just.call(xs[0...i] + [a] + xs[i..-1]) : nothing }
+$Data_Array__updateAt = ->(just, nothing, i, a, xs) { (i >= 0 && i < xs.length) ? just.call(xs[0...i] + [a] + xs[i+1..-1]) : nothing }
+$Data_Array_findIndexImpl = ->(just, nothing, f, xs) { idx = xs.find_index { |x| f.call(x) }; idx ? just.call(idx) : nothing }
+$Data_Array_findLastIndexImpl = ->(just, nothing, f, xs) { idx = xs.rindex { |x| f.call(x) }; idx ? just.call(idx) : nothing }
+$Data_Array_findMapImpl = ->(nothing, isJust, fromJust, f, xs) { res = nil; xs.each { |x| v = f.call(x); if isJust.call(v); res = fromJust.call(v); break; end }; res ? res : nothing }
+$Data_Array_partitionImpl = ->(f, xs) { t, f_res = xs.partition { |x| f.call(x) }; { "yes" => t, "no" => f_res } }
+$Data_Array_sortByImpl = ->(comp, fromOrdering, xs) { xs.sort { |a, b| fromOrdering.call(comp.call(a).call(b)) } }
+$Data_Array_unconsImpl = ->(just, nothing, xs) { xs.empty? ? nothing : just.call({ "head" => xs.first, "tail" => xs.drop(1) }) }
+$Data_Array_zipWithImpl = ->(f, xs, ys) { xs.zip(ys).take([xs.length, ys.length].min).map { |a, b| f.call(a).call(b) } }
+$Data_Array_scanlImpl = ->(f, b, xs) { acc = b; res = [acc]; xs.each { |x| acc = f.call(acc).call(x); res << acc }; res }
+$Data_Array_scanrImpl = ->(f, b, xs) { acc = b; res = [acc]; xs.reverse_each { |x| acc = f.call(x).call(acc); res.unshift(acc) }; res }
+$Data_Array_fromFoldableImpl = ->(foldr, xs) { res = []; foldr.call(->(a) { ->(acc) { res.unshift(a); acc } }).call(nil).call(xs); res }
+$Data_FunctorWithIndex_mapWithIndexArray = ->(f) { ->(xs) { xs.each_with_index.map { |x, i| f.call(i).call(x) } } }
 """
-  
-  FS.writeTextFile UTF8 "output/main_run.rb" (ffiStubHelper <> ffis <> "\n" <> requires <> "\n$Main_main.call()\n")
+    mainMod = case args.mbMainModule of
+      Just m -> String.replaceAll (String.Pattern ".") (String.Replacement "_") m
+      Nothing -> "Main"
+
+  FS.writeTextFile UTF8 (outputDir <> "/main_run.rb") (ffiStubHelper <> ffis <> "\n" <> requires <> "\n$" <> mainMod <> "_main.call()\n")

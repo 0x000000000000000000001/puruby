@@ -16,7 +16,9 @@ data RubyExpr
   | RubyLet String RubyExpr RubyExpr
   | RubyBlock (Array RubyExpr)
   | RubyAccessor RubyExpr String
+  | RubyPropertyAccess RubyExpr String
   | RubyIndexAccess RubyExpr Int
+  | RubyDynamicIndexAccess RubyExpr RubyExpr
   | RubyTernary RubyExpr RubyExpr RubyExpr
   | RubyAbs (Array String) RubyExpr
   | RubyUncurriedAbs (Array String) RubyExpr

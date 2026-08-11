@@ -1,0 +1,85 @@
+module Puruby.Printer where
+
+import Prelude
+import Data.String as String
+import Data.Maybe (Maybe(..))
+import Data.Tuple (Tuple(..))
+import Data.Array as Array
+import Puruby.RubyAst (RubyExpr(..), RubyFile)
+
+printExpr :: RubyExpr -> String
+printExpr = case _ of
+  RubyString s -> "\"" <> s <> "\""
+  RubyCall fn args ->
+    let
+      -- special case for Effect.Console.log for Baby Step 1
+      -- We don't have modules parsed yet so we just fake it if we see "TODO_Var"
+      fnStr = printExpr fn
+      argsStr = String.joinWith ", " (map printExpr args)
+    in
+      if fnStr == "TODO_Var" then
+        "puts " <> argsStr
+      else
+        fnStr <> ".call(" <> argsStr <> ")"
+  RubyFunction expr ->
+    "-> {\n  " <> printExpr expr <> "\n}"
+  RubyPropertyAccess expr prop ->
+    printExpr expr <> "." <> prop
+  RubyAccessor expr prop ->
+    printExpr expr <> "[\"" <> prop <> "\"]"
+  RubyIndexAccess expr idx ->
+    printExpr expr <> "[" <> show idx <> "]"
+  RubyTernary cond a b ->
+    "(" <> printExpr cond <> " ? " <> printExpr a <> " : " <> printExpr b <> ")"
+  RubyAbs args body ->
+    if Array.length args == 0 then
+      "lambda { " <> printExpr body <> " }.call"
+    else
+      Array.foldr (\arg acc -> "lambda { |" <> arg <> "| " <> acc <> " }") (printExpr body) args
+  RubyUncurriedAbs args body ->
+    if Array.length args == 0 then
+      "lambda { " <> printExpr body <> " }.call"
+    else
+      "lambda { |" <> String.joinWith ", " args <> "| " <> printExpr body <> " }"
+
+  RubyWhileTrue args body ->
+    "lambda { " <>
+      String.joinWith "" (map (\arg -> "__tco_" <> arg <> " = " <> arg <> "; ") args) <>
+      "loop do; " <>
+        "__tco_res = catch(:tco_loop) do; " <>
+           printExpr body <> "; " <>
+        "end; " <>
+        "if __tco_res.is_a?(Array) && __tco_res[0] == :__tco_continue; " <>
+           String.joinWith "" (Array.mapWithIndex (\i arg -> "__tco_" <> arg <> " = __tco_res[1][" <> show i <> "]; ") args) <>
+           "next; " <>
+        "else; " <>
+           "break __tco_res; " <>
+        "end; " <>
+      "end " <>
+    "}.call"
+  RubyContinue loopId argsExprs ->
+    "throw(:tco_loop, [:__tco_continue, [" <> String.joinWith ", " (map printExpr argsExprs) <> "]])"
+  RubyHash pairs ->
+    "{\n  " <> String.joinWith ",\n  " (map (\(Tuple k v) -> "\"" <> k <> "\" => " <> printExpr v) pairs) <> "\n}"
+  RubyArray arr ->
+    "[" <> String.joinWith ", " (map printExpr arr) <> "]"
+  RubyBinOp op l r ->
+    "(" <> printExpr l <> " " <> op <> " " <> printExpr r <> ")"
+  RubyGlobalVar mbMod name ->
+    let sanitize n = String.replaceAll (String.Pattern "$") (String.Replacement "") (String.replaceAll (String.Pattern "'") (String.Replacement "_") n)
+    in case mbMod of
+      Just m -> "$" <> m <> "_" <> sanitize name
+      Nothing -> sanitize name
+  RubyLocal name -> name
+  RubyLet name val body ->
+    "(" <> name <> " = " <> printExpr val <> "; " <> printExpr body <> ")"
+  RubyBlock exprs ->
+    "begin\n" <> String.joinWith "\n" (map printExpr exprs) <> "\nend"
+  RubyRaw code -> code
+  RubyLetRec _ _ -> "\"TODO: LetRec\""
+  RubyAssign name expr ->
+    "$" <> name <> " = " <> printExpr expr
+
+printFile :: RubyFile -> String
+printFile file =
+  String.joinWith "\n\n" (map printExpr file.decls) <> "\n"

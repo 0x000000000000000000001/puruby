@@ -23,8 +23,12 @@ printExpr = case _ of
         fnStr <> ".call(" <> argsStr <> ")"
   RubyFunction expr ->
     "-> {\n  " <> printExpr expr <> "\n}"
+  RubyPropertyAccess expr prop ->
+    printExpr expr <> "." <> prop
   RubyAccessor expr prop ->
     printExpr expr <> "[\"" <> prop <> "\"]"
+  RubyDynamicIndexAccess expr idxExpr ->
+    printExpr expr <> "[" <> printExpr idxExpr <> "]"
   RubyIndexAccess expr idx ->
     printExpr expr <> "[" <> show idx <> "]"
   RubyTernary cond a b ->

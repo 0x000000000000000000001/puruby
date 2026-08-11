@@ -104,16 +104,11 @@ translateExpr modName loopCtx isTail (TcoExpr tcoAnalysis syntax) = case syntax 
   Accessor expr acc -> case acc of
     GetProp prop ->
       RubyAccessor (translateExpr modName loopCtx false expr) prop
-    GetCtorField (Qualified mbMod _) _ _ (Ident ctorName) _ idx ->
-      let
-        safeCtorName = String.replaceAll (String.Pattern "'") (String.Replacement "_prime_") ctorName
-        modPart = case mbMod of
-          Just (ModuleName mn) -> String.replaceAll (String.Pattern ".") (String.Replacement "_") mn
-          Nothing -> modName
-        javaClass = modPart <> "." <> safeCtorName
-      in
-        RubyRaw "nil"
-    _ -> RubyRaw "null /* TODO: Accessor */"
+    GetIndex idx ->
+      RubyIndexAccess (translateExpr modName loopCtx false expr) idx
+    GetCtorField _ _ _ _ _ idx ->
+      RubyIndexAccess (translateExpr modName loopCtx false expr) (idx + 1)
+    _ -> RubyRaw "nil # TODO: Accessor"
   Update expr updates ->
     RubyRaw "nil"
   PrimOp op -> case op of
@@ -184,6 +179,13 @@ translateExpr modName loopCtx isTail (TcoExpr tcoAnalysis syntax) = case syntax 
   EffectPure _ -> RubyRaw "\"TODO: EffectPure\""
   EffectDefer _ -> RubyRaw "\"TODO: EffectDefer\""
   Typed _ inner -> translateExpr modName loopCtx isTail inner
+  CtorDef _ _ (Ident ctorName) fields ->
+    let
+      body = RubyArray (Array.cons (RubyString ctorName) (map (\arg -> RubyLocal arg) fields))
+    in
+      foldr (\arg acc -> RubyAbs [arg] acc) body fields
+  CtorSaturated _ _ _ (Ident ctorName) args ->
+    RubyArray (Array.cons (RubyString ctorName) (map (\(Tuple _ val) -> translateExpr modName loopCtx false val) (Array.fromFoldable args)))
   Fail msg -> RubyCall (RubyRaw "raise") [RubyString msg]
   _ -> RubyRaw ("\"TODO: " <> syntaxTag syntax <> "\"")
 
@@ -279,11 +281,12 @@ translateOperator1 modName op e = case op of
   OpIntBitNot -> RubyBinOp "~" (RubyRaw "") e
   OpIntNegate -> RubyBinOp "-" (RubyRaw "") e
   OpNumberNegate -> RubyBinOp "-" (RubyRaw "") e
-  OpArrayLength -> RubyAccessor e "length"
+  OpArrayLength -> RubyPropertyAccess e "length"
   _ -> RubyRaw ("\"TODO: Op1\"")
 
 
 translateOperator2 _ op e1 e2 = case op of
+  OpArrayIndex -> RubyDynamicIndexAccess e1 e2
   OpBooleanAnd -> RubyBinOp "&&" e1 e2
   OpBooleanOr -> RubyBinOp "||" e1 e2
   OpStringAppend -> RubyBinOp "+" e1 e2
