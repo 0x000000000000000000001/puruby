@@ -14,6 +14,7 @@ import * as Data_Tuple from "../Data.Tuple/index.js";
 import * as PureScript_Backend_Optimizer_Codegen_Tco from "../PureScript.Backend.Optimizer.Codegen.Tco/index.js";
 import * as PureScript_Backend_Optimizer_CoreFn from "../PureScript.Backend.Optimizer.CoreFn/index.js";
 import * as PureScript_Backend_Optimizer_Syntax from "../PureScript.Backend.Optimizer.Syntax/index.js";
+import * as Puruby_Printer from "../Puruby.Printer/index.js";
 import * as Puruby_RubyAst from "../Puruby.RubyAst/index.js";
 var show = /* #__PURE__ */ Data_Show.show(Data_Show.showInt);
 var map = /* #__PURE__ */ Data_Functor.map(Data_Functor.functorArray);
@@ -258,7 +259,7 @@ var syntaxTag = function (v) {
     if (v instanceof PureScript_Backend_Optimizer_Syntax.Typed) {
         return "Typed";
     };
-    throw new Error("Failed pattern match at Puruby.CodeGen (line 193, column 13 - line 217, column 23): " + [ v.constructor.name ]);
+    throw new Error("Failed pattern match at Puruby.CodeGen (line 203, column 13 - line 227, column 23): " + [ v.constructor.name ]);
 };
 var sanitizeName = function (n) {
     var n$prime = Data_String_Common.replaceAll("$")("")(Data_String_Common.replaceAll("'")("_")(n));
@@ -281,7 +282,7 @@ var localId = function (mbI) {
         if (mbI instanceof Data_Maybe.Nothing) {
             return "v_" + show(v);
         };
-        throw new Error("Failed pattern match at Puruby.CodeGen (line 21, column 3 - line 27, column 32): " + [ mbI.constructor.name ]);
+        throw new Error("Failed pattern match at Puruby.CodeGen (line 23, column 3 - line 29, column 32): " + [ mbI.constructor.name ]);
     };
 };
 var isSelfCall = function (ident) {
@@ -310,7 +311,7 @@ var extractUncurriedAbs = function (v) {
                 body: v.value1.value1
             });
         };
-        throw new Error("Failed pattern match at Puruby.CodeGen (line 36, column 8 - line 38, column 47): " + [ v1.constructor.name ]);
+        throw new Error("Failed pattern match at Puruby.CodeGen (line 38, column 8 - line 40, column 47): " + [ v1.constructor.name ]);
     };
     if (v.value1 instanceof PureScript_Backend_Optimizer_Syntax.UncurriedAbs) {
         return new Data_Maybe.Just({
@@ -358,7 +359,7 @@ var translateExpr = function (modName) {
                             return new Data_Tuple.Tuple(v1.value0, translateExpr(modName)(loopCtx)(false)(v1.value1));
                         })(v.value1.value0.value0));
                     };
-                    throw new Error("Failed pattern match at Puruby.CodeGen (line 51, column 14 - line 58, column 109): " + [ v.value1.value0.constructor.name ]);
+                    throw new Error("Failed pattern match at Puruby.CodeGen (line 53, column 14 - line 60, column 109): " + [ v.value1.value0.constructor.name ]);
                 };
                 if (v.value1 instanceof PureScript_Backend_Optimizer_Syntax.App) {
                     var flattenApp = function (v1) {
@@ -416,7 +417,7 @@ var translateExpr = function (modName) {
                                 };
                             })(translateExpr(modName)(loopCtx)(false)(v.value1.value0))(fromFoldable(v.value1.value1));
                         };
-                        throw new Error("Failed pattern match at Puruby.CodeGen (line 85, column 12 - line 89, column 156): " + [ targetCtx.constructor.name ]);
+                        throw new Error("Failed pattern match at Puruby.CodeGen (line 87, column 12 - line 91, column 156): " + [ targetCtx.constructor.name ]);
                     };
                     return foldl(function (acc) {
                         return function (arg) {
@@ -428,7 +429,7 @@ var translateExpr = function (modName) {
                     return new Puruby_RubyAst.RubyCall(translateExpr(modName)(loopCtx)(false)(v.value1.value0), map(translateExpr(modName)(loopCtx)(false))(v.value1.value1));
                 };
                 if (v.value1 instanceof PureScript_Backend_Optimizer_Syntax.UncurriedEffectApp) {
-                    return new Puruby_RubyAst.RubyCall(translateExpr(modName)(loopCtx)(false)(v.value1.value0), map(translateExpr(modName)(loopCtx)(false))(v.value1.value1));
+                    return new Puruby_RubyAst.RubyThunk(new Puruby_RubyAst.RubyCall(translateExpr(modName)(loopCtx)(false)(v.value1.value0), map(translateExpr(modName)(loopCtx)(false))(v.value1.value1)));
                 };
                 if (v.value1 instanceof PureScript_Backend_Optimizer_Syntax.UncurriedAbs) {
                     return new Puruby_RubyAst.RubyUncurriedAbs(map(function (v1) {
@@ -438,7 +439,7 @@ var translateExpr = function (modName) {
                         if (v1.value0 instanceof Data_Maybe.Nothing) {
                             return "__unused";
                         };
-                        throw new Error("Failed pattern match at Puruby.CodeGen (line 97, column 46 - line 99, column 28): " + [ v1.value0.constructor.name ]);
+                        throw new Error("Failed pattern match at Puruby.CodeGen (line 99, column 46 - line 101, column 28): " + [ v1.value0.constructor.name ]);
                     })(v.value1.value0), translateExpr(modName)(loopCtx)(false)(v.value1.value1));
                 };
                 if (v.value1 instanceof PureScript_Backend_Optimizer_Syntax.UncurriedEffectAbs) {
@@ -449,7 +450,7 @@ var translateExpr = function (modName) {
                         if (v1.value0 instanceof Data_Maybe.Nothing) {
                             return "__unused";
                         };
-                        throw new Error("Failed pattern match at Puruby.CodeGen (line 101, column 46 - line 103, column 28): " + [ v1.value0.constructor.name ]);
+                        throw new Error("Failed pattern match at Puruby.CodeGen (line 103, column 46 - line 105, column 28): " + [ v1.value0.constructor.name ]);
                     })(v.value1.value0), translateExpr(modName)(loopCtx)(false)(v.value1.value1));
                 };
                 if (v.value1 instanceof PureScript_Backend_Optimizer_Syntax.Accessor) {
@@ -474,7 +475,7 @@ var translateExpr = function (modName) {
                     if (v.value1.value0 instanceof PureScript_Backend_Optimizer_Syntax.Op2) {
                         return translateOperator2(modName)(v.value1.value0.value0)(translateExpr(modName)(loopCtx)(false)(v.value1.value0.value1))(translateExpr(modName)(loopCtx)(false)(v.value1.value0.value2));
                     };
-                    throw new Error("Failed pattern match at Puruby.CodeGen (line 114, column 16 - line 116, column 134): " + [ v.value1.value0.constructor.name ]);
+                    throw new Error("Failed pattern match at Puruby.CodeGen (line 116, column 16 - line 118, column 134): " + [ v.value1.value0.constructor.name ]);
                 };
                 if (v.value1 instanceof PureScript_Backend_Optimizer_Syntax.Var) {
                     var qModName = (function () {
@@ -484,7 +485,7 @@ var translateExpr = function (modName) {
                         if (v.value1.value0.value0 instanceof Data_Maybe.Nothing) {
                             return Data_Maybe.Nothing.value;
                         };
-                        throw new Error("Failed pattern match at Puruby.CodeGen (line 120, column 20 - line 122, column 29): " + [ v.value1.value0.value0.constructor.name ]);
+                        throw new Error("Failed pattern match at Puruby.CodeGen (line 122, column 20 - line 124, column 29): " + [ v.value1.value0.value0.constructor.name ]);
                     })();
                     return new Puruby_RubyAst.RubyGlobalVar(qModName, sanitizeName(v.value1.value0.value1));
                 };
@@ -522,7 +523,7 @@ var translateExpr = function (modName) {
                                 };
                             })(translateExpr(modName)(loopCtx)(false)(flat.fn))(flat.args);
                         };
-                        throw new Error("Failed pattern match at Puruby.CodeGen (line 135, column 12 - line 137, column 154): " + [ targetCtx.constructor.name ]);
+                        throw new Error("Failed pattern match at Puruby.CodeGen (line 137, column 12 - line 139, column 154): " + [ targetCtx.constructor.name ]);
                     };
                     return foldl(function (acc) {
                         return function (arg) {
@@ -546,7 +547,7 @@ var translateExpr = function (modName) {
                     if ($283) {
                         var v1 = Data_Array.head(fromFoldable(v.value1.value1));
                         if (v1 instanceof Data_Maybe.Just) {
-                            var javaName = sanitizeName(v1.value0.value0);
+                            var javaName = localId(new Data_Maybe.Just(v1.value0.value0))(v.value1.value0);
                             var v2 = extractUncurriedAbs(v1.value0.value1);
                             if (v2 instanceof Data_Maybe.Just) {
                                 var newCtx = {
@@ -554,17 +555,22 @@ var translateExpr = function (modName) {
                                     params: v2.value0.args
                                 };
                                 var loopBody = translateExpr(modName)(Data_Array.snoc(loopCtx)(newCtx))(true)(v2.value0.body);
-                                return new Puruby_RubyAst.RubyWhileTrue(v2.value0.args, loopBody);
+                                var curriedLoop = Data_Array.foldr(function (arg) {
+                                    return function (acc) {
+                                        return new Puruby_RubyAst.RubyAbs([ arg ], acc);
+                                    };
+                                })(new Puruby_RubyAst.RubyWhileTrue(v2.value0.args, loopBody))(v2.value0.args);
+                                return new Puruby_RubyAst.RubyLet(javaName, curriedLoop, translateExpr(modName)(loopCtx)(isTail)(v.value1.value2));
                             };
                             if (v2 instanceof Data_Maybe.Nothing) {
                                 return new Puruby_RubyAst.RubyLetRec([  ], new Puruby_RubyAst.RubyRaw("\"TODO: LetRec\""));
                             };
-                            throw new Error("Failed pattern match at Puruby.CodeGen (line 154, column 16 - line 161, column 68): " + [ v2.constructor.name ]);
+                            throw new Error("Failed pattern match at Puruby.CodeGen (line 156, column 16 - line 164, column 68): " + [ v2.constructor.name ]);
                         };
                         if (v1 instanceof Data_Maybe.Nothing) {
                             return new Puruby_RubyAst.RubyLetRec([  ], new Puruby_RubyAst.RubyRaw("\"TODO: LetRec\""));
                         };
-                        throw new Error("Failed pattern match at Puruby.CodeGen (line 150, column 9 - line 162, column 64): " + [ v1.constructor.name ]);
+                        throw new Error("Failed pattern match at Puruby.CodeGen (line 152, column 9 - line 165, column 64): " + [ v1.constructor.name ]);
                     };
                     return new Puruby_RubyAst.RubyLetRec([  ], new Puruby_RubyAst.RubyRaw("\"TODO: LetRec\""));
                 };
@@ -592,10 +598,10 @@ var translateExpr = function (modName) {
                     return new Puruby_RubyAst.RubyRaw("\"TODO: EffectBind\"");
                 };
                 if (v.value1 instanceof PureScript_Backend_Optimizer_Syntax.EffectPure) {
-                    return new Puruby_RubyAst.RubyRaw("\"TODO: EffectPure\"");
+                    return new Puruby_RubyAst.RubyThunk(translateExpr(modName)(loopCtx)(false)(v.value1.value0));
                 };
                 if (v.value1 instanceof PureScript_Backend_Optimizer_Syntax.EffectDefer) {
-                    return new Puruby_RubyAst.RubyRaw("\"TODO: EffectDefer\"");
+                    return new Puruby_RubyAst.RubyThunk(translateExpr(modName)(loopCtx)(false)(v.value1.value0));
                 };
                 if (v.value1 instanceof PureScript_Backend_Optimizer_Syntax.Typed) {
                     return translateExpr(modName)(loopCtx)(isTail)(v.value1.value1);
@@ -616,7 +622,21 @@ var translateExpr = function (modName) {
                     })(fromFoldable1(v.value1.value4))));
                 };
                 if (v.value1 instanceof PureScript_Backend_Optimizer_Syntax.Fail) {
-                    return new Puruby_RubyAst.RubyCall(new Puruby_RubyAst.RubyRaw("raise"), [ new Puruby_RubyAst.RubyString(v.value1.value0) ]);
+                    return new Puruby_RubyAst.RubyRaw("raise(" + (Puruby_Printer.printExpr(new Puruby_RubyAst.RubyString(v.value1.value0)) + ")"));
+                };
+                if (v.value1 instanceof PureScript_Backend_Optimizer_Syntax.PrimEffect) {
+                    return new Puruby_RubyAst.RubyThunk((function () {
+                        if (v.value1.value0 instanceof PureScript_Backend_Optimizer_Syntax.EffectRefNew) {
+                            return new Puruby_RubyAst.RubyHash([ new Data_Tuple.Tuple("value", translateExpr(modName)(loopCtx)(false)(v.value1.value0.value0)) ]);
+                        };
+                        if (v.value1.value0 instanceof PureScript_Backend_Optimizer_Syntax.EffectRefRead) {
+                            return new Puruby_RubyAst.RubyDynamicIndexAccess(translateExpr(modName)(loopCtx)(false)(v.value1.value0.value0), new Puruby_RubyAst.RubyString("value"));
+                        };
+                        if (v.value1.value0 instanceof PureScript_Backend_Optimizer_Syntax.EffectRefWrite) {
+                            return new Puruby_RubyAst.RubyIndexAssign(translateExpr(modName)(loopCtx)(false)(v.value1.value0.value0), new Puruby_RubyAst.RubyString("value"), translateExpr(modName)(loopCtx)(false)(v.value1.value0.value1));
+                        };
+                        throw new Error("Failed pattern match at Puruby.CodeGen (line 193, column 34 - line 199, column 127): " + [ v.value1.value0.constructor.name ]);
+                    })());
                 };
                 return new Puruby_RubyAst.RubyRaw("\"TODO: " + (syntaxTag(v.value1) + "\""));
             };
@@ -637,8 +657,8 @@ var translate = function (mod) {
     })(new Data_Tuple.Tuple([  ], [  ]))(mod.bindings);
     var modNameStr = Data_String_Common.replaceAll(".")("_")(mod.name);
     var mainDecls = Data_Array.concatMap(function (group) {
-        var $333 = group.recursive && Data_Array.length(group.bindings) === 1;
-        if ($333) {
+        var $339 = group.recursive && Data_Array.length(group.bindings) === 1;
+        if ($339) {
             var v1 = Data_Array.head(group.bindings);
             if (v1 instanceof Data_Maybe.Just) {
                 var v2 = extractUncurriedAbs(v1.value0.value1);
@@ -655,12 +675,12 @@ var translate = function (mod) {
                 if (v2 instanceof Data_Maybe.Nothing) {
                     return [ new Puruby_RubyAst.RubyAssign(modNameStr + ("_" + sanitizeName(v1.value0.value0)), translateExpr(modNameStr)([  ])(false)(v1.value0.value1)) ];
                 };
-                throw new Error("Failed pattern match at Puruby.CodeGen (line 241, column 17 - line 251, column 115): " + [ v2.constructor.name ]);
+                throw new Error("Failed pattern match at Puruby.CodeGen (line 251, column 17 - line 261, column 115): " + [ v2.constructor.name ]);
             };
             if (v1 instanceof Data_Maybe.Nothing) {
                 return [  ];
             };
-            throw new Error("Failed pattern match at Puruby.CodeGen (line 239, column 13 - line 252, column 28): " + [ v1.constructor.name ]);
+            throw new Error("Failed pattern match at Puruby.CodeGen (line 249, column 13 - line 262, column 28): " + [ v1.constructor.name ]);
         };
         return map(function (v1) {
             return new Puruby_RubyAst.RubyAssign(modNameStr + ("_" + sanitizeName(v1.value0)), translateExpr(modNameStr)([  ])(false)(v1.value1));

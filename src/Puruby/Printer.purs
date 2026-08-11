@@ -9,7 +9,7 @@ import Puruby.RubyAst (RubyExpr(..), RubyFile)
 
 printExpr :: RubyExpr -> String
 printExpr = case _ of
-  RubyString s -> "\"" <> s <> "\""
+  RubyString s -> show s
   RubyCall fn args ->
     let
       -- special case for Effect.Console.log for Baby Step 1
@@ -31,8 +31,12 @@ printExpr = case _ of
     printExpr expr <> "[" <> printExpr idxExpr <> "]"
   RubyIndexAccess expr idx ->
     printExpr expr <> "[" <> show idx <> "]"
+  RubyIndexAssign expr idxExpr valExpr ->
+    printExpr expr <> "[" <> printExpr idxExpr <> "] = " <> printExpr valExpr
   RubyTernary cond a b ->
     "(" <> printExpr cond <> " ? " <> printExpr a <> " : " <> printExpr b <> ")"
+  RubyThunk body ->
+    "lambda { " <> printExpr body <> " }"
   RubyAbs args body ->
     if Array.length args == 0 then
       "lambda { " <> printExpr body <> " }.call"

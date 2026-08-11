@@ -158,6 +158,21 @@ var RubyDynamicIndexAccess = /* #__PURE__ */ (function () {
     };
     return RubyDynamicIndexAccess;
 })();
+var RubyIndexAssign = /* #__PURE__ */ (function () {
+    function RubyIndexAssign(value0, value1, value2) {
+        this.value0 = value0;
+        this.value1 = value1;
+        this.value2 = value2;
+    };
+    RubyIndexAssign.create = function (value0) {
+        return function (value1) {
+            return function (value2) {
+                return new RubyIndexAssign(value0, value1, value2);
+            };
+        };
+    };
+    return RubyIndexAssign;
+})();
 var RubyTernary = /* #__PURE__ */ (function () {
     function RubyTernary(value0, value1, value2) {
         this.value0 = value0;
@@ -172,6 +187,15 @@ var RubyTernary = /* #__PURE__ */ (function () {
         };
     };
     return RubyTernary;
+})();
+var RubyThunk = /* #__PURE__ */ (function () {
+    function RubyThunk(value0) {
+        this.value0 = value0;
+    };
+    RubyThunk.create = function (value0) {
+        return new RubyThunk(value0);
+    };
+    return RubyThunk;
 })();
 var RubyAbs = /* #__PURE__ */ (function () {
     function RubyAbs(value0, value1) {
@@ -266,7 +290,9 @@ export {
     RubyPropertyAccess,
     RubyIndexAccess,
     RubyDynamicIndexAccess,
+    RubyIndexAssign,
     RubyTernary,
+    RubyThunk,
     RubyAbs,
     RubyUncurriedAbs,
     RubyHash,

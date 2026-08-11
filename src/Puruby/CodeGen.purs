@@ -6,7 +6,7 @@ import Data.Array as Array
 import Data.Foldable (foldl, foldr)
 import Data.Tuple (Tuple(..))
 import Data.Newtype (unwrap)
-import PureScript.Backend.Optimizer.Syntax (BackendSyntax(..), Level(..), Pair(..), BackendOperator(..), BackendOperator1(..), BackendOperator2(..), BackendAccessor(..), BackendOperatorOrd(..), BackendOperatorNum(..))
+import PureScript.Backend.Optimizer.Syntax (BackendSyntax(..), Level(..), Pair(..), BackendOperator(..), BackendOperator1(..), BackendOperator2(..), BackendAccessor(..), BackendOperatorOrd(..), BackendOperatorNum(..), BackendEffect(..))
 import PureScript.Backend.Optimizer.Codegen.Tco (TcoExpr(..), tcoAnalysisOf)
 import PureScript.Backend.Optimizer.Codegen.Tco as Tco
 import Data.Array.NonEmpty as NEA
@@ -15,6 +15,8 @@ import PureScript.Backend.Optimizer.Convert (BackendModule)
 import Puruby.RubyAst (RubyExpr(..), RubyFile)
 import Data.String as String
 import Data.String.CodeUnits as CodeUnits
+import Puruby.Printer (printExpr)
+
 
 localId :: Maybe Ident -> Level -> String
 localId mbI (Level lvl) =
@@ -92,7 +94,7 @@ translateExpr modName loopCtx isTail (TcoExpr tcoAnalysis syntax) = case syntax 
   UncurriedApp fn args ->
     RubyCall (translateExpr modName loopCtx false fn) (map (translateExpr modName loopCtx false) args)
   UncurriedEffectApp fn args ->
-    RubyCall (translateExpr modName loopCtx false fn) (map (translateExpr modName loopCtx false) args)
+    RubyThunk (RubyCall (translateExpr modName loopCtx false fn) (map (translateExpr modName loopCtx false) args))
   UncurriedAbs args body ->
     RubyUncurriedAbs (map (\(Tuple mbI _) -> case mbI of
       Just (Ident name) -> sanitizeName name
@@ -141,7 +143,7 @@ translateExpr modName loopCtx isTail (TcoExpr tcoAnalysis syntax) = case syntax 
     foldr (\(Tuple mbI lvl) acc -> RubyAbs [localId mbI lvl] acc) (translateExpr modName loopCtx isTail body) (Array.fromFoldable args)
   Let mbI lvl val body ->
     RubyLet (localId mbI lvl) (translateExpr modName loopCtx false val) (translateExpr modName loopCtx isTail body)
-  LetRec _ binds body ->
+  LetRec lvl binds body ->
     let
       tcoInfo = unwrap tcoAnalysis
       isLoop = tcoInfo.role.isLoop
@@ -150,14 +152,15 @@ translateExpr modName loopCtx isTail (TcoExpr tcoAnalysis syntax) = case syntax 
         case Array.head (Array.fromFoldable binds) of
           Just (Tuple (Ident name) val) ->
             let
-              javaName = sanitizeName name
+              javaName = localId (Just (Ident name)) lvl
             in case extractUncurriedAbs val of
               Just abs ->
                 let
                   newCtx = { ident: javaName, params: abs.args }
                   loopBody = translateExpr modName (Array.snoc loopCtx newCtx) true abs.body
+                  curriedLoop = Array.foldr (\arg acc -> RubyAbs [arg] acc) (RubyWhileTrue abs.args loopBody) abs.args
                 in
-                  RubyWhileTrue abs.args loopBody
+                  RubyLet javaName curriedLoop (translateExpr modName loopCtx isTail body)
               Nothing -> RubyLetRec [] (RubyRaw "\"TODO: LetRec\"")
           Nothing -> RubyLetRec [] (RubyRaw "\"TODO: LetRec\"")
       else
@@ -176,8 +179,8 @@ translateExpr modName loopCtx isTail (TcoExpr tcoAnalysis syntax) = case syntax 
     in
       RubyLocal (if isLoopVar then "__tco_" <> varName else varName)
   EffectBind _ _ _ _ -> RubyRaw "\"TODO: EffectBind\""
-  EffectPure _ -> RubyRaw "\"TODO: EffectPure\""
-  EffectDefer _ -> RubyRaw "\"TODO: EffectDefer\""
+  EffectPure val -> RubyThunk (translateExpr modName loopCtx false val)
+  EffectDefer val -> RubyThunk (translateExpr modName loopCtx false val)
   Typed _ inner -> translateExpr modName loopCtx isTail inner
   CtorDef _ _ (Ident ctorName) fields ->
     let
@@ -186,7 +189,14 @@ translateExpr modName loopCtx isTail (TcoExpr tcoAnalysis syntax) = case syntax 
       foldr (\arg acc -> RubyAbs [arg] acc) body fields
   CtorSaturated _ _ _ (Ident ctorName) args ->
     RubyArray (Array.cons (RubyString ctorName) (map (\(Tuple _ val) -> translateExpr modName loopCtx false val) (Array.fromFoldable args)))
-  Fail msg -> RubyCall (RubyRaw "raise") [RubyString msg]
+  Fail msg -> RubyRaw ("raise(" <> printExpr (RubyString msg) <> ")")
+  PrimEffect effect -> RubyThunk case effect of
+    EffectRefNew val ->
+      RubyHash [Tuple "value" (translateExpr modName loopCtx false val)]
+    EffectRefRead ref ->
+      RubyDynamicIndexAccess (translateExpr modName loopCtx false ref) (RubyString "value")
+    EffectRefWrite ref val ->
+      RubyIndexAssign (translateExpr modName loopCtx false ref) (RubyString "value") (translateExpr modName loopCtx false val)
   _ -> RubyRaw ("\"TODO: " <> syntaxTag syntax <> "\"")
 
 syntaxTag :: BackendSyntax TcoExpr -> String

@@ -19,7 +19,9 @@ data RubyExpr
   | RubyPropertyAccess RubyExpr String
   | RubyIndexAccess RubyExpr Int
   | RubyDynamicIndexAccess RubyExpr RubyExpr
+  | RubyIndexAssign RubyExpr RubyExpr RubyExpr
   | RubyTernary RubyExpr RubyExpr RubyExpr
+  | RubyThunk RubyExpr
   | RubyAbs (Array String) RubyExpr
   | RubyUncurriedAbs (Array String) RubyExpr
   | RubyHash (Array (Tuple String RubyExpr))

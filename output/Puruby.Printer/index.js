@@ -5,17 +5,18 @@ import * as Data_Maybe from "../Data.Maybe/index.js";
 import * as Data_Show from "../Data.Show/index.js";
 import * as Data_String_Common from "../Data.String.Common/index.js";
 import * as Puruby_RubyAst from "../Puruby.RubyAst/index.js";
+var show = /* #__PURE__ */ Data_Show.show(Data_Show.showString);
 var map = /* #__PURE__ */ Data_Functor.map(Data_Functor.functorArray);
-var show = /* #__PURE__ */ Data_Show.show(Data_Show.showInt);
+var show1 = /* #__PURE__ */ Data_Show.show(Data_Show.showInt);
 var printExpr = function (v) {
     if (v instanceof Puruby_RubyAst.RubyString) {
-        return "\"" + (v.value0 + "\"");
+        return show(v.value0);
     };
     if (v instanceof Puruby_RubyAst.RubyCall) {
         var fnStr = printExpr(v.value0);
         var argsStr = Data_String_Common.joinWith(", ")(map(printExpr)(v.value1));
-        var $9 = fnStr === "TODO_Var";
-        if ($9) {
+        var $10 = fnStr === "TODO_Var";
+        if ($10) {
             return "puts " + argsStr;
         };
         return fnStr + (".call(" + (argsStr + ")"));
@@ -33,14 +34,20 @@ var printExpr = function (v) {
         return printExpr(v.value0) + ("[" + (printExpr(v.value1) + "]"));
     };
     if (v instanceof Puruby_RubyAst.RubyIndexAccess) {
-        return printExpr(v.value0) + ("[" + (show(v.value1) + "]"));
+        return printExpr(v.value0) + ("[" + (show1(v.value1) + "]"));
+    };
+    if (v instanceof Puruby_RubyAst.RubyIndexAssign) {
+        return printExpr(v.value0) + ("[" + (printExpr(v.value1) + ("] = " + printExpr(v.value2))));
     };
     if (v instanceof Puruby_RubyAst.RubyTernary) {
         return "(" + (printExpr(v.value0) + (" ? " + (printExpr(v.value1) + (" : " + (printExpr(v.value2) + ")")))));
     };
+    if (v instanceof Puruby_RubyAst.RubyThunk) {
+        return "lambda { " + (printExpr(v.value0) + " }");
+    };
     if (v instanceof Puruby_RubyAst.RubyAbs) {
-        var $24 = Data_Array.length(v.value0) === 0;
-        if ($24) {
+        var $29 = Data_Array.length(v.value0) === 0;
+        if ($29) {
             return "lambda { " + (printExpr(v.value1) + " }.call");
         };
         return Data_Array.foldr(function (arg) {
@@ -50,8 +57,8 @@ var printExpr = function (v) {
         })(printExpr(v.value1))(v.value0);
     };
     if (v instanceof Puruby_RubyAst.RubyUncurriedAbs) {
-        var $27 = Data_Array.length(v.value0) === 0;
-        if ($27) {
+        var $32 = Data_Array.length(v.value0) === 0;
+        if ($32) {
             return "lambda { " + (printExpr(v.value1) + " }.call");
         };
         return "lambda { |" + (Data_String_Common.joinWith(", ")(v.value0) + ("| " + (printExpr(v.value1) + " }")));
@@ -61,7 +68,7 @@ var printExpr = function (v) {
             return "__tco_" + (arg + (" = " + (arg + "; ")));
         })(v.value0)) + ("loop do; " + ("__tco_res = catch(:tco_loop) do; " + (printExpr(v.value1) + ("; " + ("end; " + ("if __tco_res.is_a?(Array) && __tco_res[0] == :__tco_continue; " + (Data_String_Common.joinWith("")(Data_Array.mapWithIndex(function (i) {
             return function (arg) {
-                return "__tco_" + (arg + (" = __tco_res[1][" + (show(i) + "]; ")));
+                return "__tco_" + (arg + (" = __tco_res[1][" + (show1(i) + "]; ")));
             };
         })(v.value0)) + ("next; " + ("else; " + ("break __tco_res; " + ("end; " + ("end " + "}.call")))))))))))));
     };
@@ -89,7 +96,7 @@ var printExpr = function (v) {
         if (v.value0 instanceof Data_Maybe.Nothing) {
             return sanitize(v.value1);
         };
-        throw new Error("Failed pattern match at Puruby.Printer (line 72, column 8 - line 74, column 31): " + [ v.value0.constructor.name ]);
+        throw new Error("Failed pattern match at Puruby.Printer (line 76, column 8 - line 78, column 31): " + [ v.value0.constructor.name ]);
     };
     if (v instanceof Puruby_RubyAst.RubyLocal) {
         return v.value0;
@@ -109,7 +116,7 @@ var printExpr = function (v) {
     if (v instanceof Puruby_RubyAst.RubyAssign) {
         return "$" + (v.value0 + (" = " + printExpr(v.value1)));
     };
-    throw new Error("Failed pattern match at Puruby.Printer (line 11, column 13 - line 83, column 43): " + [ v.constructor.name ]);
+    throw new Error("Failed pattern match at Puruby.Printer (line 11, column 13 - line 87, column 43): " + [ v.constructor.name ]);
 };
 var printFile = function (file) {
     return Data_String_Common.joinWith("\x0a\x0a")(map(printExpr)(file.decls)) + "\x0a";
