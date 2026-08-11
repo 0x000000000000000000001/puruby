@@ -82,7 +82,6 @@ $Data_Semiring_intAdd = ->(a) { ->(b) { a + b } }
 $Data_Semiring_intMul = ->(a) { ->(b) { a * b } }
 $Data_Ring_intSub = ->(a) { ->(b) { a - b } }
 $Data_Eq_eqIntImpl = ->(a) { ->(b) { a == b } }
-$Data_Eq_eqCharImpl = ->(a) { ->(b) { a == b } }
 $Data_Eq_eqStringImpl = ->(a) { ->(b) { a == b } }
 $Data_Functor_arrayMap = ->(f) { ->(xs) { xs.map { |x| f.call(x) } } }
 $Control_Apply_arrayApply = ->(fs) { ->(xs) { fs.flat_map { |f| xs.map { |x| f.call(x) } } } }
@@ -118,7 +117,7 @@ $Data_Eq_eqArrayImpl = ->(f) { ->(xs) { ->(ys) { xs.is_a?(Array) && ys.is_a?(Arr
 $Data_Ord_ordIntImpl = ->(lt) { ->(eq) { ->(gt) { ->(x) { ->(y) { x < y ? lt : (x == y ? eq : gt) } } } } }
 $Data_Ord_ordCharImpl = ->(lt) { ->(eq) { ->(gt) { ->(x) { ->(y) { x < y ? lt : (x == y ? eq : gt) } } } } }
 $Data_Ord_ordStringImpl = ->(lt) { ->(eq) { ->(gt) { ->(x) { ->(y) { x < y ? lt : (x == y ? eq : gt) } } } } }
-$Test_Assert_assertImpl = ->(msg) { ->(success) { ->() { raise msg unless success } } }
+$Test_Assert_assertImpl = ->(msg) { ->(success) { ->() { puts "Assert #{msg}: #{success.inspect}"; raise msg unless success } } }
 $Test_Assert_checkThrows = ->(f) { ->() { begin; f.call(); false; rescue; true; end } }
 $Data_Show_showIntImpl = ->(n) { n.to_s }
 $Data_Show_showStringImpl = ->(s) { s.inspect }
