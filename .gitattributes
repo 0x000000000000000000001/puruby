@@ -1,4 +1,8 @@
+# Ignore all files for language stats
+* linguist-vendored
+# Keep JS generated diffs hidden
 *.js linguist-generated
-*.js linguist-vendored
 bin/puruby.js linguist-generated
-bin/puruby.js linguist-vendored
+
+# Only include target language
+*.rb linguist-vendored=false
