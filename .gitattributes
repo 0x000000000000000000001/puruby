@@ -9,3 +9,7 @@ bin/puruby.js linguist-generated
 # Only include target language
 *.rb linguist-detectable=true
 *.rb linguist-vendored=false
+
+# Suppress Dhall entirely from stats
+*.dhall linguist-detectable=false
+*.dhall linguist-vendored
